@@ -1,0 +1,8 @@
+-r requirements_core.txt
+torch>=2.2.0
+transformers>=4.45.0
+accelerate>=0.28.0
+einops>=0.7.0
+moondream>=0.0.5
+fastapi>=0.110.0
+uvicorn>=0.28.0

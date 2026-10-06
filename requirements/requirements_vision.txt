@@ -1,0 +1,7 @@
+-r requirements_core.txt
+torch>=2.5.1
+torchvision>=0.20.1
+supervision>=0.22.0
+addict>=2.4.0
+yapf>=0.40.0
+timm>=1.0.0

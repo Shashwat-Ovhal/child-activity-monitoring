@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+env_*/
+venv/
+.venv/
+
+# Model checkpoints & large weights
+models/
+*.pth
+*.pt
+*.bin
+*.safetensors
+*.onnx
+
+# Data & Video footage
+*.mp4
+*.avi
+*.mov
+*.mkv
+tests/videos/*.mp4
+tests/videos/*.avi
+
+# Debug outputs & clips
+results/clips/
+results/*.png
+results/*.jpg
+
+# OS / Editor artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

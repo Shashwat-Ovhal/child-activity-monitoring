@@ -1,0 +1,6 @@
+clip_id,filename,start_time_sec,end_time_sec,ground_truth_activity,notes
+1,tests/videos/clip1_walking.mp4,0,12,"The child is walking across the room.",Solo child
+2,tests/videos/clip2_sitting.mp4,0,15,"The child is sitting on the floor.",Child playing with toy
+3,tests/videos/clip3_eating.mp4,0,10,"The child is eating at the table.",Hand to mouth action
+4,tests/videos/clip4_adult_present.mp4,0,20,"The child is walking near the sofa.",Adult crosses background
+5,tests/videos/clip5_standing.mp4,0,14,"The child is standing near the table.",Low motion

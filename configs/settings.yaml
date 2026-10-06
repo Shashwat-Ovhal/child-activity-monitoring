@@ -1,0 +1,54 @@
+# Child Activity Monitoring System - Configuration Settings
+
+camera:
+  source: 0                         # Webcam index (0, 1) or path to video file (e.g., "tests/videos/sample.mp4")
+  width: 1280
+  height: 720
+  fps: 30
+  loop_video: true                  # Loop video indefinitely when reading from a file
+
+detection:
+  prompt: "child"                   # Text prompt for Grounding DINO
+  box_threshold: 0.35               # Confidence threshold for bounding box detection
+  text_threshold: 0.25              # Confidence threshold for text prompt matching
+  config_path: "configs/GroundingDINO_SwinT_OGC.py"
+  weights_path: "models/grounding_dino/groundingdino_swint_ogc.pth"
+  device: "cuda"                    # "cuda" or "cpu"
+
+tracking:
+  model_cfg: "configs/sam2.1/sam2.1_hiera_s.yaml"
+  checkpoint_path: "models/sam2/sam2.1_hiera_small.pt"
+  segment_length_seconds: 3.0       # Track in segments to prevent drift and allow re-grounding
+  device: "cuda"
+
+temporal:
+  buffer_duration_seconds: 3.0      # Duration of child crop rolling buffer
+  buffer_target_fps: 8              # FPS at which child crops are captured in buffer
+  crop_margin: 0.20                 # 20% spatial padding around child bounding box
+  target_crop_size: [384, 384]      # Normalized crop dimensions [height, width]
+  sample_keyframes_count: 8         # Number of representative frames extracted for VLM
+  motion_change_threshold: 0.15     # Relative pixel/motion shift required to trigger VLM call
+  heartbeat_interval_seconds: 8.0   # Maximum seconds before forcing a VLM refresh even if static
+
+vlm:
+  engine_type: "moondream"          # Primary: Moondream 3 MoE (~2B active)
+  model_id: "moondream/moondream3-preview"
+  device: "cuda"                    # "cuda" or "cpu"
+  precision: "float16"              # "float16" for GPU, "float32" for CPU
+  prompt_template: >
+    Observe the child across these chronological frames.
+    Describe ONLY the child's current physical activity.
+    Answer in one short sentence, starting with "The child is".
+    Do not describe the room, clothes, or anything else.
+
+activity:
+  smoothing_window_size: 4          # Number of historical predictions to evaluate
+  min_state_streak: 2               # Minimum consecutive identical responses to trigger transition
+  inactivity_timeout_seconds: 180   # Alert if child remains in same passive state for > 3 minutes
+
+display:
+  show_bounding_box: true
+  show_mask: true
+  show_activity_banner: true
+  font_scale: 0.75
+  banner_height: 50
