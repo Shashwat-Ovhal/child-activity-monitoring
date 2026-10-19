@@ -23,7 +23,7 @@ class FrameBuffer:
         self.target_crop_size = target_crop_size  # (height, width)
         self.max_capacity = max(5, int(duration_seconds * target_fps))
         self.buffer = deque(maxlen=self.max_capacity)
-        self.last_capture_time = 0.0
+        self.last_capture_time = -float("inf")
         self.interval = 1.0 / target_fps
 
     def add_frame(self, frame: np.ndarray, bbox: Tuple[int, int, int, int], timestamp: float) -> bool:
@@ -76,6 +76,7 @@ class FrameBuffer:
 
     def clear(self) -> None:
         self.buffer.clear()
+        self.last_capture_time = -float("inf")
 
     def save_debug_clip(self, output_path: str, fps: int = 8) -> bool:
         """Saves current buffer as an mp4 file for visual inspection."""

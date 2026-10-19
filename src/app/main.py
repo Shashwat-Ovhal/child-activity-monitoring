@@ -195,4 +195,9 @@ def main(config_file: str = "configs/settings.yaml", headless: bool = False):
         logger.info("System gracefully shut down.")
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description="Child Activity Monitoring System")
+    parser.add_argument("--config", type=str, default="configs/settings.yaml", help="Path to YAML settings file")
+    parser.add_argument("--headless", action="store_true", help="Run without graphical display window (for cloud/remote servers)")
+    args = parser.parse_args()
+    main(config_file=args.config, headless=args.headless)

@@ -1,0 +1,3 @@
+# Unified dependencies for Child Activity Monitoring System (GPU / Production)
+-r requirements/requirements_vision.txt
+-r requirements/requirements_vlm.txt
