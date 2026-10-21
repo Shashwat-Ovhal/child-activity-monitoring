@@ -29,7 +29,7 @@ def load_config(config_path: str = "configs/settings.yaml") -> dict:
     logger.warning(f"Config {config_path} not found. Using defaults.")
     return {}
 
-def main(config_file: str = "configs/settings.yaml", headless: bool = False):
+def main(config_file: str = "configs/settings.yaml", headless: bool = False, save_video: Optional[str] = None):
     config = load_config(config_file)
 
     cam_cfg = config.get("camera", {})
@@ -176,6 +176,13 @@ def main(config_file: str = "configs/settings.yaml", headless: bool = False):
                 fps=fps
             )
 
+            if save_video:
+                if video_writer is None:
+                    h, w = display_frame.shape[:2]
+                    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+                    video_writer = cv2.VideoWriter(save_video, fourcc, cam_cfg.get("fps", 30), (w, h))
+                video_writer.write(display_frame)
+
             if not headless:
                 cv2.imshow("Child Activity Monitoring System (V1)", display_frame)
                 key = cv2.waitKey(1) & 0xFF
@@ -190,8 +197,22 @@ def main(config_file: str = "configs/settings.yaml", headless: bool = False):
         logger.info("Interrupted by user.")
     finally:
         camera.release()
+        if video_writer is not None:
+            video_writer.release()
+            logger.info(f"Saved annotated video with live activity banner to: {save_video}")
         if not headless:
             cv2.destroyAllWindows()
+
+        # Save structured activity readings & event transitions
+        report_path = "activity_events_report.json"
+        try:
+            import json
+            with open(report_path, "w") as f:
+                json.dump(events.get_events(), f, indent=2)
+            logger.info(f"Exported {len(events.get_events())} activity events to {report_path}")
+        except Exception as e:
+            logger.warning(f"Could not export event logs: {e}")
+
         logger.info("System gracefully shut down.")
 
 if __name__ == "__main__":
@@ -199,5 +220,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Child Activity Monitoring System")
     parser.add_argument("--config", type=str, default="configs/settings.yaml", help="Path to YAML settings file")
     parser.add_argument("--headless", action="store_true", help="Run without graphical display window (for cloud/remote servers)")
+    parser.add_argument("--save-video", type=str, default=None, help="Save annotated video with bounding boxes and activity overlay")
     args = parser.parse_args()
-    main(config_file=args.config, headless=args.headless)
+    main(config_file=args.config, headless=args.headless, save_video=args.save_video)
