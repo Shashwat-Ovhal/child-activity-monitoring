@@ -1,7 +1,7 @@
 # Child Activity Monitoring System - Configuration Settings
 
 camera:
-  source: 0                         # Webcam index (0, 1) or path to video file (e.g., "tests/videos/sample.mp4")
+  source: "tests/videos/sample.mp4"         # Set to 0 for live webcam, or video path
   width: 1280
   height: 720
   fps: 30
@@ -31,8 +31,8 @@ temporal:
   heartbeat_interval_seconds: 8.0   # Maximum seconds before forcing a VLM refresh even if static
 
 vlm:
-  engine_type: "moondream"          # Primary: Moondream 3 MoE (~2B active)
-  model_id: "moondream/moondream3-preview"
+  engine_type: "moondream"          # Primary: Moondream open weights
+  model_id: "vikhyatk/moondream2"
   device: "cuda"                    # "cuda" or "cpu"
   precision: "float16"              # "float16" for GPU, "float32" for CPU
   prompt_template: >
