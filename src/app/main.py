@@ -134,6 +134,9 @@ def main(config_file: str = "configs/settings.yaml", headless: bool = False, sav
             latest_activity_text = text
             events.update(text)
 
+    # Video output writer
+    video_writer = None
+
     try:
         for success, frame in camera.frames():
             if not success or frame is None:

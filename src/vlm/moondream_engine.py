@@ -46,7 +46,7 @@ class MoondreamEngine(BaseVLMEngine):
                 torch_dtype=torch_dtype,
                 device_map=self.device if self.device == "cuda" else None
             )
-            self.tokenizer = AutoTokenizer.from_pretrained(target_model)
+            self.tokenizer = AutoTokenizer.from_pretrained(target_model, trust_remote_code=True)
             self._is_loaded = True
             logger.info(f"Moondream ({target_model}) loaded successfully on {self.device}.")
         except Exception as e:
