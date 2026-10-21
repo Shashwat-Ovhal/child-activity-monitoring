@@ -29,35 +29,29 @@ class MoondreamEngine(BaseVLMEngine):
     def _load_model(self) -> None:
         try:
             import torch
-            logger.info(f"Attempting to load Moondream 3 from '{self.model_id}' on {self.device}...")
+            # Resolve model ID: default to open weights vikhyatk/moondream2 if not specified
+            target_model = self.model_id
+            if "moondream3" in target_model or not target_model:
+                target_model = "vikhyatk/moondream2"
 
-            # Option 1: Official moondream package
-            try:
-                import moondream as md
-                self.model = md.vl(model=self.model_id)
-                self._is_loaded = True
-                logger.info("Moondream loaded via official moondream library.")
-                return
-            except (ImportError, Exception) as e:
-                logger.info(f"Official moondream package not available or failed ({e}); trying Transformers...")
+            logger.info(f"Loading local Moondream model '{target_model}' on {self.device} via Transformers...")
 
-            # Option 2: Hugging Face Transformers
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
             torch_dtype = torch.float16 if self.precision == "float16" and self.device == "cuda" else torch.float32
 
             self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_id,
+                target_model,
                 trust_remote_code=True,
                 torch_dtype=torch_dtype,
                 device_map=self.device if self.device == "cuda" else None
             )
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
+            self.tokenizer = AutoTokenizer.from_pretrained(target_model)
             self._is_loaded = True
-            logger.info("Moondream 3 loaded successfully via Transformers.")
+            logger.info(f"Moondream ({target_model}) loaded successfully on {self.device}.")
         except Exception as e:
             logger.warning(
-                f"Could not load Moondream model ({e}). "
+                f"Could not load local Moondream model ({e}). "
                 "MoondreamEngine will operate in stub/dry-run mode until weights are present."
             )
             self._is_loaded = False
@@ -93,13 +87,18 @@ class MoondreamEngine(BaseVLMEngine):
         try:
             image = self._create_temporal_contact_sheet(frames)
 
-            # Query Moondream
-            if hasattr(self.model, "query"):
-                # Official moondream API
-                answer = self.model.query(image, prompt)["answer"]
+            # Query local Moondream model
+            if hasattr(self.model, "encode_image"):
+                enc_image = self.model.encode_image(image)
+                answer = self.model.answer_question(enc_image, prompt, self.tokenizer)
             elif hasattr(self.model, "answer_question"):
-                # Transformers custom remote code interface
-                answer = self.model.answer_question(image, prompt, tokenizer=self.tokenizer)
+                try:
+                    answer = self.model.answer_question(image, prompt, self.tokenizer)
+                except TypeError:
+                    answer = self.model.answer_question(image, prompt, tokenizer=self.tokenizer)
+            elif hasattr(self.model, "query"):
+                res = self.model.query(image, prompt)
+                answer = res["answer"] if isinstance(res, dict) else str(res)
             else:
                 answer = "The child is active in the room."
 
