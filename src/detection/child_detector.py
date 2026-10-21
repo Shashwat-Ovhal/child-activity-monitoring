@@ -37,6 +37,23 @@ class ChildDetector:
             return
 
         try:
+            # Patch for transformers >= 4.40 compatibility with Grounding DINO
+            try:
+                import torch
+                from transformers import BertModel
+                if not hasattr(BertModel, "get_extended_attention_mask"):
+                    def _get_extended_attention_mask(self, attention_mask, input_shape):
+                        if attention_mask.dim() == 3:
+                            ext_mask = attention_mask[:, None, :, :]
+                        elif attention_mask.dim() == 2:
+                            ext_mask = attention_mask[:, None, None, :]
+                        else:
+                            raise ValueError(f"Wrong shape: {attention_mask.shape}")
+                        return (1.0 - ext_mask) * -10000.0
+                    BertModel.get_extended_attention_mask = _get_extended_attention_mask
+            except Exception as patch_err:
+                logger.debug(f"BertModel patch not needed or failed: {patch_err}")
+
             from groundingdino.util.inference import load_model
             logger.info(f"Loading Grounding DINO on {self.device}...")
             self.model = load_model(self.config_path, self.weights_path, device=self.device)
