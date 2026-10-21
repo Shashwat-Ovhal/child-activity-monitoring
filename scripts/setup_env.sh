@@ -23,14 +23,16 @@ mkdir -p third_party
 if [ ! -d "third_party/sam2" ]; then
     echo "Cloning and installing SAM 2..."
     git clone https://github.com/facebookresearch/sam2.git third_party/sam2
-    cd third_party/sam2 && pip install -e . && cd ../..
+    cd third_party/sam2 && pip install --no-build-isolation -e . && cd ../..
 fi
 
-# 4. Install Grounding DINO
-if [ ! -d "third_party/GroundingDINO" ]; then
-    echo "Cloning and building Grounding DINO..."
-    git clone https://github.com/IDEA-Research/GroundingDINO.git third_party/GroundingDINO
-    cd third_party/GroundingDINO && pip install -e . && cd ../..
+# 4. Install Grounding DINO (robust against Python 3.10-3.12 C++ build errors)
+if ! python -c "import groundingdino" 2>/dev/null; then
+    echo "Installing Grounding DINO..."
+    if [ ! -d "third_party/GroundingDINO" ]; then
+        git clone https://github.com/IDEA-Research/GroundingDINO.git third_party/GroundingDINO
+    fi
+    (cd third_party/GroundingDINO && BUILD_CUDA_EXT=0 pip install --no-build-isolation -e .) || pip install groundingdino-py
 fi
 
 echo ""

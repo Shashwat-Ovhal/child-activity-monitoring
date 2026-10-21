@@ -83,28 +83,28 @@ child-monitoring/
 
 ## 4. Quickstart Guide
 
-The complete pipeline utilizes deep learning models for detection (Grounding DINO), persistent segmentation (SAM 2), and temporal visual-language reasoning (Moondream 3). Follow the guide below based on your hardware setup:
-- **Part 1:** [Running on Local PC with NVIDIA GPU (Ubuntu / WSL2 Recommended)](#part-1-running-on-local-pc-with-nvidia-gpu-recommended)
-- **Part 2:** [Running via Rented Cloud GPU on Vast.ai](#part-2-running-via-rented-cloud-gpu-on-vastai)
+The complete pipeline utilizes deep learning models for detection (Grounding DINO), persistent segmentation (SAM 2), and temporal visual-language reasoning (Moondream 2 / 3). Follow the guide below based on your hardware setup:
+- **Part 1:** [Running Locally on PC / Workstation with NVIDIA GPU (Live Webcam & Video)](#part-1-running-on-local-pc-with-nvidia-gpu-recommended)
+- **Part 2:** [Running via Rented Cloud GPU on Vast.ai (Fast-Track Rental Guide)](#part-2-running-via-rented-cloud-gpu-on-vastai)
 
 ---
 
 ### Part 1: Running on Local PC with NVIDIA GPU (Recommended)
 
-This is the primary setup for running the complete system locally with real GPU-accelerated inference.
+This is the primary setup for running the complete system locally with real GPU acceleration and a **live visual display window**.
 
 > [!TIP]
-> **OS Recommendation:** **Linux (Ubuntu 20.04/22.04/24.04)** or **Windows with WSL2 (Ubuntu)** is strongly recommended. Grounding DINO and SAM 2 build C++/CUDA extensions (`MultiScaleDeformableAttention`) which compile natively and smoothly in a Linux environment.
+> **OS Recommendation:** **Linux (Ubuntu 20.04/22.04/24.04)** or **Windows with WSL2 (Ubuntu)** is strongly recommended. Grounding DINO and SAM 2 compile and link CUDA extensions natively in Linux environments.
 
 #### Step 1: Verify Hardware & Prerequisites
-Ensure you have an NVIDIA GPU with the proper drivers installed, along with Python 3.10+:
+Ensure you have an NVIDIA GPU (GTX 1650/1660/1080 or RTX series with 6 GB+ VRAM) and Python 3.10+:
 ```bash
 nvidia-smi
 python3 --version  # Must be 3.10 or higher
 ```
 
 #### Step 2: Clone Repository & Create Virtual Environment
-Isolating dependencies inside a dedicated virtual environment ensures that the project packages and CUDA extensions do not conflict with system-level packages.
+Isolating dependencies inside a dedicated virtual environment ensures that the project packages and CUDA extensions do not conflict with system-level packages:
 
 ```bash
 git clone https://github.com/Shashwat-Ovhal/child-activity-monitoring.git
@@ -122,7 +122,7 @@ source .venv/bin/activate
 ```
 
 #### Step 3: Install Dependencies & CUDA Extensions
-Upgrade pip and run the automated setup script, which installs PyTorch with CUDA, project libraries, and builds Grounding DINO & SAM 2:
+Upgrade pip and run the automated setup script:
 
 ```bash
 # Automated setup (installs requirements.txt and compiles SAM 2 & Grounding DINO)
@@ -133,13 +133,19 @@ bash scripts/setup_env.sh
 ```bash
 pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
+
 # Install SAM 2
 git clone https://github.com/facebookresearch/sam2.git third_party/sam2
-cd third_party/sam2 && pip install -e . && cd ../..
+cd third_party/sam2 && pip install --no-build-isolation -e . && cd ../..
+
 # Install Grounding DINO
+# Note: Use BUILD_CUDA_EXT=0 to prevent C++ compiler/Ninja mismatches on newer Python versions
 git clone https://github.com/IDEA-Research/GroundingDINO.git third_party/GroundingDINO
-cd third_party/GroundingDINO && pip install -e . && cd ../..
+cd third_party/GroundingDINO && BUILD_CUDA_EXT=0 pip install --no-build-isolation -e . && cd ../..
+# Alternatively, install the pre-built wheel directly: pip install groundingdino-py
 ```
+> [!NOTE]
+> `src/detection/child_detector.py` includes an automatic backward-compatibility patch for `BertModel.get_extended_attention_mask`, so newer versions of Hugging Face `transformers` (v4.40+) load Grounding DINO without error.
 
 #### Step 4: Download Model Weights & Configs
 Run the model downloader script to fetch the pre-trained checkpoints for Grounding DINO and SAM 2.1 Hiera:
@@ -149,26 +155,20 @@ bash scripts/download_models.sh
 This downloads:
 - Grounding DINO Swin-T weights (`models/grounding_dino/groundingdino_swint_ogc.pth`) & config (`configs/GroundingDINO_SwinT_OGC.py`)
 - SAM 2.1 Hiera Small weights (`models/sam2/sam2.1_hiera_small.pt`) & config (`configs/sam2.1/sam2.1_hiera_s.yaml`)
-- Moondream 3 loads automatically from Hugging Face on its first run (or you can pre-cache it).
+- Moondream 2 open weights (`vikhyatk/moondream2`) load automatically via Hugging Face Transformers on first run with zero cloud authentication.
 
 #### Step 5: Configure `configs/settings.yaml`
-Open `configs/settings.yaml` in your favorite text editor (VS Code, Nano, Vim, etc.). This single file controls all operational parameters.
-
-```bash
-# Open in VS Code or nano:
-nano configs/settings.yaml
-```
-
-**Where and how to configure key parameters for GPU execution:**
+Open `configs/settings.yaml` to choose between a **Live Webcam** or a **Local Video File**:
 
 ```yaml
 camera:
-  # 0 or 1 for live USB webcam, or string path to a test video:
-  source: 0                         # e.g., "tests/videos/sample.mp4" if no webcam is connected
+  # Option A (Live USB Webcam): set source to 0 or 1
+  # Option B (Recorded Video): set source to video path, e.g., "tests/videos/sample.mp4"
+  source: 0
   width: 1280
   height: 720
   fps: 30
-  loop_video: true
+  loop_video: true                  # Loops recorded video indefinitely
 
 detection:
   prompt: "child"                   # Open-vocabulary prompt to locate child
@@ -176,13 +176,13 @@ detection:
   text_threshold: 0.25
   config_path: "configs/GroundingDINO_SwinT_OGC.py"
   weights_path: "models/grounding_dino/groundingdino_swint_ogc.pth"
-  device: "cuda"                    # <-- SET TO "cuda" for GPU acceleration
+  device: "cuda"                    # <-- "cuda" for GPU acceleration
 
 tracking:
   model_cfg: "configs/sam2.1/sam2.1_hiera_s.yaml"
   checkpoint_path: "models/sam2/sam2.1_hiera_small.pt"
   segment_length_seconds: 3.0
-  device: "cuda"                    # <-- SET TO "cuda" for GPU acceleration
+  device: "cuda"                    # <-- "cuda" for GPU acceleration
 
 temporal:
   buffer_duration_seconds: 3.0      # Rolling buffer duration
@@ -193,10 +193,10 @@ temporal:
   heartbeat_interval_seconds: 8.0   # Heartbeat refresh interval
 
 vlm:
-  engine_type: "moondream"          # <-- "moondream" for real VLM, or "mock" for dummy test
-  model_id: "moondream/moondream3-preview"
-  device: "cuda"                    # <-- SET TO "cuda"
-  precision: "float16"              # <-- "float16" (optimal for GTX 1650/1660/1080 and RTX series)
+  engine_type: "moondream"
+  model_id: "vikhyatk/moondream2"   # 100% open weights, no API key needed
+  device: "cuda"                    # <-- "cuda"
+  precision: "float16"              # <-- "float16" (optimal for GTX & RTX cards)
 
 activity:
   smoothing_window_size: 4
@@ -220,95 +220,143 @@ Run the unit test suite:
 python -m pytest tests/
 ```
 
-#### Step 7: Launch the Application
+#### Step 7: Launch the Application (Live Visual Display)
 Run the complete real-time pipeline:
 ```bash
 python src/app/main.py
 ```
-- A window titled **"Child Activity Monitoring System (V1)"** will open showing the camera feed.
-- The system will detect the child, track them with persistent SAM 2 segmentation, continuously sample keyframes, query Moondream 3, smooth predictions to eliminate flicker, and display real-time activity banners.
+- A window titled **"Child Activity Monitoring System (V1)"** will open showing your webcam or video stream at 30 FPS.
+- The system will detect the child, track them with persistent SAM 2 segmentation, continuously sample keyframes, query Moondream on GPU, smooth predictions to eliminate flicker, and display a real-time activity banner at the top (e.g., *"The child is sitting on the floor"*).
 - Press `q` while focused on the video window to cleanly exit.
+
+**Optional: Record Annotated Video to MP4:**
+You can also record the visual output with all overlays directly to a video file:
+```bash
+python src/app/main.py --save-video my_child_activity_recording.mp4
+```
 
 ---
 
 ### Part 2: Running via Rented Cloud GPU on Vast.ai
 
-If you do not have a dedicated NVIDIA GPU locally or have limited VRAM, you can rent an affordable GPU on **[Vast.ai](https://vast.ai)** (or RunPod / Lambda) for pennies per hour.
+If you do not have a dedicated NVIDIA GPU locally or want an on-demand cloud machine, follow this fast-track guide.
 
-#### Step 1: Rent an Instance on Vast.ai
-1. Log into your [Vast.ai Console](https://cloud.vast.ai).
-2. Choose a template:
-   - **Recommended Template:** `PyTorch` (Ubuntu 22.04 with CUDA 12.1 or higher).
-3. Select GPU specs:
-   - **Minimum VRAM:** 8 GB to 16 GB (e.g., RTX 3060, RTX 3080, RTX 4090, or A4000).
-   - **Disk Allocation:** Allocate at least **30 GB** to comfortably store CUDA packages and model checkpoints.
-4. Click **Rent** and wait for the instance to transition to `Running`.
+#### Should you rent it?
+**Yes, definitely.** 
+An **RTX 3090 (24 GB VRAM)** is an ideal GPU for this system. The entire pipeline (Grounding DINO + SAM 2 + Moondream 2/3 FP16) consumes roughly **7–9 GB VRAM**, so the 3090 has plenty of headroom and will run inference at maximum speed.
 
-#### Step 2: Connect via SSH
-Copy the SSH connection command provided in your Vast.ai instance dashboard and run it in your local terminal:
+**Is 1.5 hours enough?**
+**Yes, easily**—on a cloud datacenter connection (typically 500 Mbps – 1 Gbps):
+- Environment setup & building CUDA extensions: **~5–8 minutes**
+- Downloading model checkpoints: **~2–4 minutes**
+- That leaves you with **over 1 hour and 15 minutes** of uninterrupted testing and execution.
+
+---
+
+#### Critical Warnings Before Starting (To Save Time & Credits)
+1. **Pick the Right Docker Image on Vast.ai:** 
+   Choose the **PyTorch** template (`pytorch/pytorch` with CUDA 12.1 or 12.4). **Do not** start from a blank Ubuntu image, or you will waste 15–20 minutes just installing CUDA and PyTorch.
+2. **Cloud Has No Webcam:**
+   A cloud GPU does not have a physical camera attached (`/dev/video0`). You **must** provide an MP4 video or use a sample video clip, and run in `--headless` mode.
+3. **Download Results Before 1.5 Hours Expire:**
+   When credits run out, Vast.ai will stop the instance. Make sure you copy any generated logs or saved video clips to your local PC before the timer runs out.
+
+---
+
+#### Step-by-Step 15-Minute Fast-Track Guide
+
+##### 1. Rent the Instance on Vast.ai
+1. In the Vast.ai search filters:
+   - Select **1x RTX 3090** (or RTX 3080/4090/A4000).
+   - Under **Template / Image**, select **PyTorch** (e.g. `pytorch/pytorch:2.2.0-cuda12.1-cudnn8-devel` or latest PyTorch 2.x devel image).
+   - Disk space: set to **30 GB** or more.
+2. Click **Rent** and wait ~1–2 minutes until the status shows **Running**.
+
+##### 2. Connect via SSH
+Copy the SSH command from your Vast.ai dashboard and paste it into your local terminal:
 ```bash
 ssh -p <PORT> root@<IP_ADDRESS> -L 8080:localhost:8080
 ```
 
-#### Step 3: Clone Repository & Setup Environment
-Once connected to the remote instance shell:
+##### 3. Install Required System Libraries (1 minute)
+Cloud containers often lack basic video and OpenGL libraries needed by OpenCV:
 ```bash
-# 1. Install OS dependencies for OpenCV and video handling
 apt-get update && apt-get install -y git wget libgl1-mesa-glx libglib2.0-0 ffmpeg
+```
 
-# 2. Clone repository
+##### 4. Clone Repo & Set Up Environment (5 minutes)
+```bash
+# Clone the repository
 git clone https://github.com/Shashwat-Ovhal/child-activity-monitoring.git
 cd child-activity-monitoring
 
-# 3. Create and activate virtual environment
-python3 -m venv .venv
+# Create and activate virtual environment
+python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
 
-# 4. Run automated environment setup
-bash scripts/setup_env.sh
+# Upgrade pip & install dependencies
+pip install --upgrade pip setuptools wheel
+pip install -r requirements.txt
 
-# 5. Download model weights
+# Run automated setup for SAM 2 & Grounding DINO
+bash scripts/setup_env.sh
+```
+
+##### 5. Download Model Weights (2–3 minutes)
+```bash
 bash scripts/download_models.sh
 ```
 
-#### Step 4: Configure for Cloud / Headless Execution
-Since a cloud GPU instance has no physical webcam and no desktop monitor attached:
+##### 6. Prepare a Test Video & Configure `configs/settings.yaml`
+Since a cloud GPU has no webcam, upload an MP4 video or use a test video clip:
+```bash
+mkdir -p tests/videos
+wget -q --show-progress -O tests/videos/sample.mp4 "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
 
-1. **Provide a test video:** Upload a test MP4 video (or place one at `tests/videos/sample.mp4`).
-2. **Update `configs/settings.yaml`:**
-   ```yaml
-   camera:
-     source: "tests/videos/sample.mp4"   # <-- Point to video file instead of webcam index
-     loop_video: true
+# Configure settings.yaml for RTX 3090 & video file automatically
+python3 -c "
+import yaml
+with open('configs/settings.yaml', 'r') as f:
+    cfg = yaml.safe_load(f)
+cfg['camera']['source'] = 'tests/videos/sample.mp4'
+cfg['camera']['loop_video'] = True
+cfg['detection']['device'] = 'cuda'
+cfg['tracking']['device'] = 'cuda'
+cfg['vlm']['model_id'] = 'vikhyatk/moondream2'
+cfg['vlm']['device'] = 'cuda'
+cfg['vlm']['precision'] = 'float16'
+with open('configs/settings.yaml', 'w') as f:
+    yaml.dump(cfg, f, default_flow_style=False)
+print('settings.yaml configured!')
+"
+```
 
-   detection:
-     device: "cuda"
+##### 7. Verify GPU & Launch Application
+```bash
+# Verify GPU detection
+python -c "import torch; print('CUDA Available:', torch.cuda.is_available(), '| GPU:', torch.cuda.get_device_name(0))"
 
-   tracking:
-     device: "cuda"
+# Run tests
+python -m pytest tests/
 
-   vlm:
-     engine_type: "moondream"
-     device: "cuda"
-     precision: "float16"
-   ```
+# Launch pipeline and record annotated video with bounding boxes & activity banner
+python src/app/main.py --headless --save-video /workspace/child-activity-monitoring/annotated_output.mp4 2>&1 | tee full_monitoring_log.txt
+```
+*(Let it run for 15–30 seconds, then press `Ctrl + C`)*.
 
-#### Step 5: Run Verification & Headless Execution
-1. Run tests to confirm the entire environment is intact:
-   ```bash
-   python -m pytest tests/
-   ```
+##### 8. Download Video & Logs to Local PC Before Credits Expire
+Open a **new PowerShell / Terminal window on your local PC** and run:
+```powershell
+# Save commands history on remote server first:
+# ssh -p <PORT> root@<IP> "history > /workspace/child-activity-monitoring/commands_history.txt"
 
-2. Launch the pipeline in **headless mode** (no GUI window required):
-   ```bash
-   python src/app/main.py --headless
-   ```
-   *Tip:* If you want to use virtual framebuffers for rendering visuals remotely, you can also use `xvfb-run`:
-   ```bash
-   apt-get install -y xvfb
-   xvfb-run -a python src/app/main.py --headless
-   ```
-   The system will process the video, log child detection, run SAM 2 tracking, execute Moondream 3 reasoning, and print real-time activity events to stdout and log files.
+# Download video and logs to your local Desktop:
+scp -P <PORT> -i "$env:USERPROFILE\.ssh\id_ed25519" root@<IP>:/workspace/child-activity-monitoring/annotated_output.mp4 "$env:USERPROFILE\Desktop\"
+scp -P <PORT> -i "$env:USERPROFILE\.ssh\id_ed25519" root@<IP>:/workspace/child-activity-monitoring/full_monitoring_log.txt "$env:USERPROFILE\Desktop\"
+```
+
+##### 9. Destroy Instance
+Go to your **[Vast.ai Console](https://cloud.vast.ai)** and click **Destroy Instance** to immediately stop credit consumption.
 
 ---
 
